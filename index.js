@@ -9,7 +9,7 @@ import { saveSettingsDebounced } from '../../../../script.js';
 
     function makeId() {
         return globalThis.crypto?.randomUUID?.()
-            ?? `$${Date.now()}-$${Math.random().toString(36).slice(2)}`;
+            ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
 
     function makeNote(title = 'Новая заметка', text = '') {
@@ -344,11 +344,233 @@ import { saveSettingsDebounced } from '../../../../script.js';
             const query = search.value.trim().toLowerCase();
 
             const matches = data.notes.filter(note =>
-                `$${note.title}\n$${note.text}`.toLowerCase().includes(query)
+                `${note.title}\n${note.text}`.toLowerCase().includes(query)
             );
 
             count.textContent = query
-                ? `$${matches.length} / $${data.notes.length}`
+                ? `${matches.length} / ${data.notes.length}`
                 : `${data.notes.length}`;
 
-            const fragment = document.createDocument
+            const fragment = document.createDocumentFragment();
+            let editNewCard = null;
+
+            for (const note of matches) {
+                const card = buildCard(note);
+                fragment.append(card.element);
+
+                if (note.id === editId) {
+                    editNewCard = card.edit;
+                }
+            }
+
+            if (!matches.length) {
+                const empty = document.createElement('div');
+                empty.className = 'oocnb-empty';
+                empty.textContent = 'Ничего не найдено. Попробуй другой запрос.';
+                fragment.append(empty);
+            }
+
+            cards.replaceChildren(fragment);
+
+            if (editNewCard) {
+                cards.scrollTop = 0;
+                editNewCard();
+            }
+        }
+
+        function exportNotes() {
+            const backup = {
+                version: 1,
+                notes: data.notes.map(note => ({
+                    title: note.title,
+                    text: note.text
+                }))
+            };
+
+            const blob = new Blob(
+                [JSON.stringify(backup, null, 2)],
+                { type: 'application/json;charset=utf-8' }
+            );
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download =
+                `ooc-notebook-${new Date().toISOString().slice(0, 10)}.json`;
+
+            document.body.append(link);
+            link.click();
+            link.remove();
+
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            say('Экспортированы все заметки, независимо от поиска.');
+        }
+
+        root.querySelector('[data-action="close"]')
+            .addEventListener('click', closeNotebook);
+
+        root.querySelector('[data-action="new"]')
+            .addEventListener('click', () => {
+                const note = makeNote();
+                data.notes.unshift(note);
+                search.value = '';
+                save();
+                render(note.id);
+                say();
+            });
+
+        root.querySelector('[data-action="export"]')
+            .addEventListener('click', exportNotes);
+
+        root.querySelector('[data-action="import"]')
+            .addEventListener('click', () => {
+                fileInput.value = '';
+                fileInput.click();
+            });
+
+        search.addEventListener('input', () => render());
+
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files?.[0];
+            if (!file) return;
+
+            try {
+                if (file.size > 5 * 1024 * 1024) {
+                    throw new Error('Файл больше 5 МБ.');
+                }
+
+                const backup = JSON.parse(await file.text());
+
+                if (
+                    !backup ||
+                    !Array.isArray(backup.notes) ||
+                    !backup.notes.length ||
+                    backup.notes.length > 1000 ||
+                    !backup.notes.every(note =>
+                        note &&
+                        typeof note.title === 'string' &&
+                        typeof note.text === 'string'
+                    )
+                ) {
+                    throw new Error('Не подходит формат файла.');
+                }
+
+                const confirmed = confirm(
+                    `Добавить заметки из файла: ${backup.notes.length}?\n\n` +
+                    'Текущие заметки останутся. ' +
+                    'Повторный импорт создаст копии.'
+                );
+
+                if (!confirmed) return;
+
+                const imported = backup.notes.map(note =>
+                    makeNote(note.title, note.text)
+                );
+
+                data.notes.push(...imported);
+                search.value = '';
+                save();
+                render();
+                say(`Добавлено заметок: ${imported.length}.`);
+            } catch (error) {
+                alert(
+                    'Не удалось импортировать: ' +
+                    (error instanceof Error ? error.message : String(error))
+                );
+            } finally {
+                fileInput.value = '';
+            }
+        });
+
+        root.addEventListener('click', event => {
+            if (event.target === root) closeNotebook();
+        });
+
+        root.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                closeNotebook();
+                return;
+            }
+
+            if (event.key !== 'Tab') return;
+
+            const focusable = [...panel.querySelectorAll(
+                'button, input, textarea, [tabindex="0"]'
+            )].filter(element =>
+                !element.disabled && element.getClientRects().length
+            );
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (!first) {
+                event.preventDefault();
+                panel.focus();
+                return;
+            }
+
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+
+        // Добавляем пункт в стандартное меню волшебной палочки ST.
+        function attachMenuEntry() {
+            const menu = document.getElementById('extensionsMenu');
+            if (!menu) return false;
+
+            if (document.getElementById('oocnb-menu-item')) return true;
+
+            menuEntry = document.createElement('div');
+            menuEntry.id = 'oocnb-menu-item';
+            menuEntry.className = 'list-group-item flex-container flexGap5';
+            menuEntry.tabIndex = 0;
+            menuEntry.setAttribute('role', 'button');
+            menuEntry.setAttribute('aria-controls', 'oocnb-panel');
+            menuEntry.setAttribute('aria-expanded', 'false');
+
+            const icon = document.createElement('span');
+            icon.className = 'fa-solid fa-book';
+            icon.setAttribute('aria-hidden', 'true');
+
+            const label = document.createElement('span');
+            label.textContent = 'OOC-блокнот';
+
+            menuEntry.append(icon, label);
+            menuEntry.addEventListener('click', openNotebook);
+
+            menuEntry.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openNotebook();
+                }
+            });
+
+            menu.append(menuEntry);
+            return true;
+        }
+
+        if (!attachMenuEntry()) {
+            const observer = new MutationObserver(() => {
+                if (attachMenuEntry()) observer.disconnect();
+            });
+
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+        init();
+    }
+})();
