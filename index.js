@@ -1,489 +1,354 @@
-import { extension_settings, getContext } from '../../../extensions.js';
+import { extension_settings } from '../../../extensions.js';
 import { saveSettingsDebounced } from '../../../../script.js';
 
 (() => {
-    'use strict';
-
-    if (document.getElementById('oocnb-toggle')) return;
+    if (window.__stOocNotebookCardsLoaded) return;
+    window.__stOocNotebookCardsLoaded = true;
 
     const KEY = 'ooc_notebook_v1';
 
     function makeId() {
         return globalThis.crypto?.randomUUID?.()
-            ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            ?? `$${Date.now()}-$${Math.random().toString(36).slice(2)}`;
     }
 
     function makeNote(title = 'Новая заметка', text = '') {
         return { id: makeId(), title, text };
     }
 
-    if (!extension_settings[KEY]) {
-        extension_settings[KEY] = {
-            notes: [makeNote('Мои OOC')],
-        };
-        saveSettingsDebounced();
-    }
+    function init() {
+        if (document.getElementById('oocnb-root')) return;
 
-    const data = extension_settings[KEY];
+        let needsSave = false;
 
-    // При неожиданном формате не перезаписываем заметки.
-    if (!Array.isArray(data.notes)) {
-        console.error('OOC Notebook: неверный формат сохранённых данных.');
-        return;
-    }
-
-    if (!data.notes.length) {
-        data.notes.push(makeNote('Мои OOC'));
-        saveSettingsDebounced();
-    }
-
-    let selectedId = data.notes[0].id;
-
-    const toggle = document.createElement('button');
-    toggle.id = 'oocnb-toggle';
-    toggle.type = 'button';
-    toggle.textContent = '📝 Мои OOC';
-    toggle.setAttribute('aria-controls', 'oocnb-panel');
-    toggle.setAttribute('aria-expanded', 'false');
-
-    const panel = document.createElement('section');
-    panel.id = 'oocnb-panel';
-    panel.hidden = true;
-    panel.setAttribute('aria-label', 'Блокнот OOC');
-
-    // Только статический интерфейс.
-    // Содержимое заметок никогда не вставляется как HTML.
-    panel.innerHTML = `
-        <div class="oocnb-header">
-            <strong>📝 Мои OOC</strong>
-            <button type="button" data-action="close"
-                aria-label="Закрыть блокнот">✕</button>
-        </div>
-
-        <div class="oocnb-body">
-            <div class="oocnb-hint">
-                Личный блокнот. Сам ничего не передаёт модели.
-            </div>
-
-            <div class="oocnb-row">
-                <select class="oocnb-list"
-                    aria-label="Выбрать заметку"></select>
-                <button type="button" data-action="new">＋ Новая</button>
-            </div>
-
-            <input class="oocnb-title" type="text"
-                placeholder="Название заметки"
-                aria-label="Название заметки">
-
-            <textarea class="oocnb-text"
-                placeholder="Твой OOC или любая заметка…"
-                aria-label="Текст заметки"></textarea>
-
-            <div class="oocnb-row oocnb-wrap">
-                <button type="button" data-action="copy">
-                    Копировать
-                </button>
-                <button type="button" data-action="insert">
-                    Вставить в поле ввода
-                </button>
-            </div>
-
-            <div class="oocnb-row oocnb-wrap">
-                <button type="button" data-action="export">
-                    Экспорт
-                </button>
-                <button type="button" data-action="import">
-                    Импорт
-                </button>
-                <button type="button" data-action="delete">
-                    Удалить заметку
-                </button>
-            </div>
-
-            <div class="oocnb-hint">
-                Автосохранение в настройках ST · общие для всех чатов
-            </div>
-
-            <input class="oocnb-file" type="file"
-                accept=".json,application/json" hidden>
-        </div>
-    `;
-
-    // Старую плавающую кнопку больше не показываем.
-toggle.style.setProperty('display', 'none', 'important');
-document.body.append(toggle, panel);
-
-// Пункт в меню волшебной палочки.
-const wandItem = document.createElement('div');
-wandItem.id = 'oocnb-wand-item';
-wandItem.className = 'list-group-item flex-container flexGap5';
-wandItem.setAttribute('role', 'button');
-wandItem.tabIndex = 0;
-
-wandItem.innerHTML = `
-    <span class="fa-solid fa-book"></span>
-    <span>Мои OOC — блокнот</span>
-`;
-
-wandItem.addEventListener('click', () => {
-    setOpen(panel.hidden);
-});
-
-wandItem.addEventListener('keydown', event => {
-    if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        wandItem.click();
-    }
-});
-
-function mountNotebookMenu() {
-    const menu = document.getElementById('extensionsMenu');
-
-    if (!menu) {
-        setTimeout(mountNotebookMenu, 500);
-        return;
-    }
-
-    if (!menu.contains(wandItem)) {
-        menu.append(wandItem);
-    }
-}
-
-mountNotebookMenu();
-
-    const list = panel.querySelector('.oocnb-list');
-    const title = panel.querySelector('.oocnb-title');
-    const text = panel.querySelector('.oocnb-text');
-    const fileInput = panel.querySelector('.oocnb-file');
-
-    function currentNote() {
-        return data.notes.find(note => note.id === selectedId);
-    }
-
-    function save() {
-        saveSettingsDebounced();
-    }
-
-    function setOpen(open) {
-        panel.hidden = !open;
-        toggle.setAttribute('aria-expanded', String(open));
-    }
-
-    function renderList() {
-        list.replaceChildren();
-
-        for (const note of data.notes) {
-            const option = document.createElement('option');
-            option.value = note.id;
-            option.textContent = note.title.trim() || 'Без названия';
-            list.append(option);
+        if (extension_settings[KEY] === undefined) {
+            extension_settings[KEY] = {
+                notes: [makeNote('Мои OOC')]
+            };
+            needsSave = true;
         }
 
-        list.value = selectedId;
-    }
+        const data = extension_settings[KEY];
 
-    function showNote() {
-        const note = currentNote();
-        if (!note) return;
-
-        title.value = note.title;
-        text.value = note.text;
-        renderList();
-    }
-
-    function onAction(name, callback) {
-        panel.querySelector(`[data-action="${name}"]`)
-            .addEventListener('click', callback);
-    }
-
-    toggle.addEventListener('click', () => {
-        setOpen(panel.hidden);
-    });
-
-    onAction('close', () => setOpen(false));
-
-    panel.addEventListener('keydown', event => {
-        if (event.key === 'Escape') {
-            setOpen(false);
-            toggle.focus();
-            event.stopPropagation();
-        }
-    });
-
-    list.addEventListener('change', () => {
-        selectedId = list.value;
-        showNote();
-    });
-
-    title.addEventListener('input', () => {
-        const note = currentNote();
-        if (!note) return;
-
-        note.title = title.value;
-
-        const option = list.options[list.selectedIndex];
-        if (option) {
-            option.textContent = note.title.trim() || 'Без названия';
-        }
-
-        save();
-    });
-
-    text.addEventListener('input', () => {
-        const note = currentNote();
-        if (!note) return;
-
-        note.text = text.value;
-        save();
-    });
-
-    onAction('new', () => {
-        const note = makeNote();
-        data.notes.push(note);
-        selectedId = note.id;
-        save();
-        showNote();
-        title.focus();
-        title.select();
-    });
-
-    onAction('delete', () => {
-        const note = currentNote();
-        if (!note) return;
-
-        const name = note.title.trim() || 'Без названия';
-
-        if (!window.confirm(`Удалить заметку «${name}»?`)) return;
-
-        const index = data.notes.findIndex(item => item.id === selectedId);
-        data.notes.splice(index, 1);
-
-        if (!data.notes.length) {
-            data.notes.push(makeNote());
-        }
-
-        selectedId = data.notes[Math.min(index, data.notes.length - 1)].id;
-        save();
-        showNote();
-    });
-
-    onAction('copy', async () => {
-        const note = currentNote();
-        if (!note) return;
-
-        try {
-            await navigator.clipboard.writeText(note.text);
-
-            const button = panel.querySelector('[data-action="copy"]');
-            button.textContent = 'Скопировано ✓';
-
-            setTimeout(() => {
-                button.textContent = 'Копировать';
-            }, 1500);
-        } catch {
-            text.focus();
-            text.select();
-
-            window.alert(
-                'Автокопирование недоступно. ' +
-                'Текст выделен — скопируй его вручную.',
+        const valid =
+            data &&
+            Array.isArray(data.notes) &&
+            data.notes.every(note =>
+                note &&
+                typeof note.id === 'string' &&
+                typeof note.title === 'string' &&
+                typeof note.text === 'string'
             );
-        }
-    });
 
-    onAction('insert', () => {
-        const note = currentNote();
-        if (!note?.text) return;
+        const uniqueIds = valid &&
+            new Set(data.notes.map(note => note.id)).size === data.notes.length;
 
-        const input = document.getElementById('send_textarea');
-
-        if (!input || input.disabled || input.readOnly) {
-            window.alert('Поле ввода ST сейчас недоступно.');
+        if (!valid || !uniqueIds) {
+            console.error('OOC Notebook: неверный формат сохранённых данных.');
+            alert(
+                'OOC-блокнот: не удалось прочитать сохранённые заметки. ' +
+                'Они не были удалены или заменены.'
+            );
             return;
         }
 
-        // Добавляем к черновику, а не заменяем его.
-        input.value += (input.value ? '\n\n' : '') + note.text;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+        if (!data.notes.length) {
+            data.notes.push(makeNote('Мои OOC'));
+            needsSave = true;
+        }
 
-        setOpen(false);
-        input.focus();
+        function save() {
+            saveSettingsDebounced();
+        }
 
-        // Отправку сообщения НЕ запускаем.
-    });
+        if (needsSave) save();
 
-    onAction('export', () => {
-        const backup = {
-            version: 1,
-            notes: data.notes.map(note => ({
-                title: note.title,
-                text: note.text,
-            })),
-        };
+        const root = document.createElement('div');
+        root.id = 'oocnb-root';
+        root.hidden = true;
 
-        const blob = new Blob(
-            [JSON.stringify(backup, null, 2)],
-            { type: 'application/json;charset=utf-8' },
-        );
+        root.innerHTML = `
+            <section
+                id="oocnb-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="oocnb-heading"
+                tabindex="-1"
+            >
+                <header class="oocnb-header">
+                    <div>
+                        <h2 id="oocnb-heading">📝 OOC-блокнот</h2>
+                        <div class="oocnb-subtitle">
+                            Общие заметки для всех чатов
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        class="oocnb-button oocnb-close"
+                        data-action="close"
+                        aria-label="Закрыть блокнот"
+                    >✕</button>
+                </header>
 
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
+                <div class="oocnb-toolbar">
+                    <button
+                        type="button"
+                        class="oocnb-button oocnb-new"
+                        data-action="new"
+                    >＋ Новая заметка</button>
+                    <button
+                        type="button"
+                        class="oocnb-button"
+                        data-action="export"
+                    >Экспорт</button>
+                    <button
+                        type="button"
+                        class="oocnb-button"
+                        data-action="import"
+                    >Импорт</button>
+                </div>
 
-        link.href = url;
-        link.download =
-            `ooc-notebook-${new Date().toISOString().slice(0, 10)}.json`;
+                <div class="oocnb-search-row">
+                    <input
+                        type="search"
+                        class="oocnb-search"
+                        placeholder="Поиск по заголовкам и тексту…"
+                        aria-label="Поиск заметок"
+                        autocomplete="off"
+                    >
+                    <span class="oocnb-count"></span>
+                </div>
 
-        document.body.append(link);
-        link.click();
-        link.remove();
+                <div class="oocnb-cards"></div>
 
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    });
+                <footer class="oocnb-footer">
+                    <div class="oocnb-status" role="status"></div>
+                    <div>
+                        Заметки сохраняются при редактировании.
+                        «Вставить в чат» не отправляет сообщение.
+                    </div>
+                </footer>
 
-    onAction('import', () => {
-        fileInput.value = '';
-        fileInput.click();
-    });
+                <input
+                    type="file"
+                    class="oocnb-file"
+                    accept=".json,application/json"
+                    hidden
+                >
+            </section>
+        `;
 
-    fileInput.addEventListener('change', async () => {
-        const file = fileInput.files?.[0];
-        if (!file) return;
+        document.body.append(root);
 
-        try {
-            if (file.size > 5 * 1024 * 1024) {
-                throw new Error('Файл больше 5 МБ.');
-            }
+        const panel = root.querySelector('#oocnb-panel');
+        const search = root.querySelector('.oocnb-search');
+        const cards = root.querySelector('.oocnb-cards');
+        const count = root.querySelector('.oocnb-count');
+        const status = root.querySelector('.oocnb-status');
+        const fileInput = root.querySelector('.oocnb-file');
 
-            const backup = JSON.parse(await file.text());
+        let previousFocus = null;
+        let menuEntry = null;
+
+        function titleOf(note) {
+            return note.title.trim() || 'Без названия';
+        }
+
+        function say(text = '') {
+            status.textContent = text;
+        }
+
+        function openNotebook() {
+            previousFocus = document.activeElement;
+            root.hidden = false;
+            menuEntry?.setAttribute('aria-expanded', 'true');
+            say();
+            render();
+            search.focus({ preventScroll: true });
+        }
+
+        function closeNotebook() {
+            root.hidden = true;
+            menuEntry?.setAttribute('aria-expanded', 'false');
 
             if (
-                !Array.isArray(backup.notes) ||
-                !backup.notes.length ||
-                backup.notes.length > 1000 ||
-                !backup.notes.every(note =>
-                    note &&
-                    typeof note.title === 'string' &&
-                    typeof note.text === 'string'
-                )
+                previousFocus instanceof HTMLElement &&
+                previousFocus.isConnected &&
+                previousFocus.getClientRects().length
             ) {
-                throw new Error('Не подходит формат файла.');
+                previousFocus.focus({ preventScroll: true });
+            } else {
+                document.getElementById('send_textarea')
+                    ?.focus({ preventScroll: true });
+            }
+        }
+
+        function button(label, action) {
+            const element = document.createElement('button');
+            element.type = 'button';
+            element.className = 'oocnb-button';
+            element.textContent = label;
+            element.addEventListener('click', action);
+            return element;
+        }
+
+        function buildCard(note) {
+            const card = document.createElement('article');
+            card.className = 'oocnb-card';
+
+            const heading = document.createElement('h3');
+            heading.className = 'oocnb-card-title';
+            heading.textContent = titleOf(note);
+
+            const preview = document.createElement('div');
+            preview.className = 'oocnb-preview';
+            preview.textContent = note.text || 'Пустая заметка';
+            preview.classList.toggle('oocnb-empty-text', !note.text);
+
+            const editor = document.createElement('div');
+            editor.className = 'oocnb-editor';
+            editor.hidden = true;
+
+            const titleLabel = document.createElement('label');
+            titleLabel.className = 'oocnb-field';
+            titleLabel.append(document.createTextNode('Заголовок'));
+
+            const titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.className = 'oocnb-title';
+            titleInput.placeholder = 'Название заметки';
+            titleInput.value = note.title;
+            titleLabel.append(titleInput);
+
+            const textLabel = document.createElement('label');
+            textLabel.className = 'oocnb-field';
+            textLabel.append(document.createTextNode('Текст OOC'));
+
+            const textInput = document.createElement('textarea');
+            textInput.className = 'oocnb-text';
+            textInput.placeholder = 'Напиши или вставь OOC…';
+            textInput.value = note.text;
+            textInput.rows = 7;
+            textLabel.append(textInput);
+
+            editor.append(titleLabel, textLabel);
+
+            titleInput.addEventListener('input', () => {
+                note.title = titleInput.value;
+                heading.textContent = titleOf(note);
+                save();
+            });
+
+            textInput.addEventListener('input', () => {
+                note.text = textInput.value;
+                preview.textContent = note.text || 'Пустая заметка';
+                preview.classList.toggle('oocnb-empty-text', !note.text);
+                save();
+            });
+
+            const actions = document.createElement('div');
+            actions.className = 'oocnb-card-actions';
+
+            function setEditing(editing, focusTitle = false) {
+                editor.hidden = !editing;
+                preview.hidden = editing;
+                editButton.textContent = editing
+                    ? 'Готово'
+                    : 'Редактировать';
+
+                if (editing) {
+                    const field = focusTitle ? titleInput : textInput;
+                    field.focus({ preventScroll: true });
+                    if (focusTitle) titleInput.select();
+                }
             }
 
-            if (!window.confirm(
-                `Добавить заметки из файла: ${backup.notes.length}?\n` +
-                'Текущие заметки останутся. Повторный импорт создаст копии.',
-            )) return;
+            const editButton = button('Редактировать', () => {
+                setEditing(editor.hidden);
+            });
 
-            const imported = backup.notes.map(note =>
-                makeNote(note.title, note.text)
+            const copyButton = button('Копировать', async () => {
+                if (!note.text) {
+                    say('В этой заметке пока нет текста.');
+                    return;
+                }
+
+                try {
+                    await navigator.clipboard.writeText(note.text);
+                    say(`Скопировано: «${titleOf(note)}».`);
+                } catch {
+                    setEditing(true);
+                    textInput.select();
+                    say(
+                        'Автокопирование недоступно. ' +
+                        'Текст выделен — скопируй его вручную.'
+                    );
+                }
+            });
+
+            const insertButton = button('Вставить в чат', () => {
+                if (!note.text) {
+                    say('В этой заметке пока нет текста.');
+                    return;
+                }
+
+                const input = document.getElementById('send_textarea');
+
+                if (!input || input.disabled || input.readOnly) {
+                    say('Поле ввода ST сейчас недоступно.');
+                    return;
+                }
+
+                input.value += (input.value ? '\n\n' : '') + note.text;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+
+                closeNotebook();
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            });
+
+            const deleteButton = button('Удалить', () => {
+                if (!confirm(`Удалить заметку «${titleOf(note)}»?`)) return;
+
+                const index = data.notes.findIndex(item => item.id === note.id);
+                if (index < 0) return;
+
+                data.notes.splice(index, 1);
+
+                if (!data.notes.length) {
+                    data.notes.push(makeNote('Мои OOC'));
+                }
+
+                save();
+                render();
+                say('Заметка удалена.');
+            });
+            deleteButton.classList.add('oocnb-delete');
+
+            actions.append(
+                editButton,
+                copyButton,
+                insertButton,
+                deleteButton
             );
 
-            data.notes.push(...imported);
-            selectedId = imported[0].id;
+            card.append(heading, preview, editor, actions);
 
-            save();
-            showNote();
-        } catch (error) {
-            window.alert(`Не удалось импортировать: ${error.message}`);
+            return {
+                element: card,
+                edit: () => setEditing(true, true)
+            };
         }
-    });
 
-    // Настройка автосохранения отправленных OOC.
-    if (typeof data.autoCaptureOoc !== 'boolean') {
-        data.autoCaptureOoc = true;
-        save();
-    }
+        function render(editId = null) {
+            const query = search.value.trim().toLowerCase();
 
-    const autoLabel = document.createElement('label');
-    autoLabel.className = 'oocnb-auto';
+            const matches = data.notes.filter(note =>
+                `$${note.title}\n$${note.text}`.toLowerCase().includes(query)
+            );
 
-    const autoCheckbox = document.createElement('input');
-    autoCheckbox.type = 'checkbox';
-    autoCheckbox.checked = data.autoCaptureOoc;
+            count.textContent = query
+                ? `$${matches.length} / $${data.notes.length}`
+                : `${data.notes.length}`;
 
-    const autoCaption = document.createElement('span');
-    autoCaption.textContent = 'Сохранять отправленные OOC';
-
-    autoLabel.append(autoCheckbox, autoCaption);
-    panel.querySelector('.oocnb-body').append(autoLabel);
-
-    autoCheckbox.addEventListener('change', () => {
-        data.autoCaptureOoc = autoCheckbox.checked;
-        save();
-    });
-
-    // Защита от повторной обработки одного события.
-    const capturedMessages = new WeakSet();
-
-    // Поддерживает OOC / ООС и смешанные латинские/кириллические буквы.
-    // Пометка должна находиться в начале сообщения.
-    const oocMarker = /^\s*(?:\[\s*|\(\s*)?[oо][oо][cс](?=$|[\s:)\]—-])/iu;
-
-    function captureSentOoc(messageId) {
-        if (!data.autoCaptureOoc) return;
-
-        const context = getContext();
-        const chat = context.chat;
-
-        if (!Array.isArray(chat) || !chat.length) return;
-
-        const numericId = (
-            typeof messageId === 'number' ||
-            typeof messageId === 'string'
-        ) ? Number(messageId) : NaN;
-
-        const index = Number.isInteger(numericId) && numericId >= 0
-            ? numericId
-            : chat.length - 1;
-
-        const message = chat[index];
-
-        // Только отправленные пользователем текстовые сообщения.
-        if (
-            !message ||
-            message.is_user !== true ||
-            typeof message.mes !== 'string'
-        ) return;
-
-        if (!oocMarker.test(message.mes)) return;
-        if (capturedMessages.has(message)) return;
-
-        capturedMessages.add(message);
-
-        const preview = message.mes
-            .trim()
-            .replace(/\s+/g, ' ')
-            .slice(0, 65);
-
-        const note = makeNote(preview || 'OOC', message.mes);
-
-        data.notes.push(note);
-        save();
-
-        // Не переключаем заметку, если ты сейчас работаешь в блокноте.
-        if (panel.hidden) {
-            selectedId = note.id;
-            showNote();
-        } else {
-            renderList();
-        }
-    }
-
-    const notebookContext = getContext();
-
-    if (
-        notebookContext.eventSource?.on &&
-        notebookContext.eventTypes?.MESSAGE_SENT
-    ) {
-        notebookContext.eventSource.on(
-            notebookContext.eventTypes.MESSAGE_SENT,
-            captureSentOoc,
-        );
-    } else {
-        autoCheckbox.disabled = true;
-        autoCaption.textContent =
-            'Автосбор недоступен в этой версии ST';
-    }
-
-    showNote();
-})();
+            const fragment = document.createDocument
