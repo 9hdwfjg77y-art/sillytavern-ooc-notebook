@@ -1,0 +1,11 @@
+{
+    "display_name": "OOC Notebook",
+    "loading_order": 120,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Local",
+    "version": "1.0.0",
+    "homePage": ""
+}
