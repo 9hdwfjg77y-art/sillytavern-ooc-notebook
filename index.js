@@ -109,7 +109,47 @@ import { saveSettingsDebounced } from '../../../../script.js';
         </div>
     `;
 
-    document.body.append(toggle, panel);
+    // Старую плавающую кнопку больше не показываем.
+toggle.style.setProperty('display', 'none', 'important');
+document.body.append(toggle, panel);
+
+// Пункт в меню волшебной палочки.
+const wandItem = document.createElement('div');
+wandItem.id = 'oocnb-wand-item';
+wandItem.className = 'list-group-item flex-container flexGap5';
+wandItem.setAttribute('role', 'button');
+wandItem.tabIndex = 0;
+
+wandItem.innerHTML = `
+    <span class="fa-solid fa-book"></span>
+    <span>Мои OOC — блокнот</span>
+`;
+
+wandItem.addEventListener('click', () => {
+    setOpen(panel.hidden);
+});
+
+wandItem.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        wandItem.click();
+    }
+});
+
+function mountNotebookMenu() {
+    const menu = document.getElementById('extensionsMenu');
+
+    if (!menu) {
+        setTimeout(mountNotebookMenu, 500);
+        return;
+    }
+
+    if (!menu.contains(wandItem)) {
+        menu.append(wandItem);
+    }
+}
+
+mountNotebookMenu();
 
     const list = panel.querySelector('.oocnb-list');
     const title = panel.querySelector('.oocnb-title');
