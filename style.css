@@ -140,3 +140,40 @@
     outline: 2px solid var(--SmartThemeBodyColor, #eeeeee);
     outline-offset: 2px;
 }
+/* Панель блокнота: открывается из волшебной палочки */
+#oocnb-panel {
+    left: 12px;
+    bottom: 16px;
+    width: 390px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+}
+
+/* Переключатель автосбора */
+#oocnb-panel .oocnb-auto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+#oocnb-panel .oocnb-auto input {
+    flex: 0 0 auto;
+    width: auto !important;
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    #oocnb-panel {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        width: auto;
+        max-width: none;
+        max-height: calc(100vh - 16px);
+        max-height: calc(100dvh - 16px);
+    }
+}
