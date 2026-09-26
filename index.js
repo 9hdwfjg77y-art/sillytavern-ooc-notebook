@@ -536,8 +536,8 @@ import { saveSettingsDebounced } from '../../../../script.js';
             menuEntry.setAttribute('aria-expanded', 'false');
 
             const icon = document.createElement('span');
-            icon.className = 'fa-solid fa-book';
-            icon.setAttribute('aria-hidden', 'true');
+icon.className = 'fa-solid fa-feather';
+icon.setAttribute('aria-hidden', 'true');
 
             const label = document.createElement('span');
             label.textContent = 'OOC-блокнот';
