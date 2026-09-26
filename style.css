@@ -1,179 +1,193 @@
-/* Кнопка и панель слева, чтобы не мешать детектору справа */
-#oocnb-toggle,
-#oocnb-panel {
-    position: fixed;
-    left: 12px;
-    z-index: 1000;
+/* OOC Notebook — общий блокнот с карточками */
 
-    color: var(--SmartThemeBodyColor, #eeeeee);
-    background: var(--SmartThemeBlurTintColor, #262626);
-    border: 1px solid var(--SmartThemeBorderColor, #777777);
-
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
-    font-size: 14px;
-    line-height: 1.4;
-    text-align: left;
+#oocnb-root,
+#oocnb-root * {
+    box-sizing: border-box;
 }
 
-#oocnb-toggle {
-    bottom: 100px;
-    width: auto;
-    min-height: 36px;
-    margin: 0;
-    padding: 7px 12px;
-    border-radius: 9px;
-    cursor: pointer;
-}
-
-#oocnb-panel {
-    bottom: 145px;
-    width: 370px;
-    max-width: calc(100vw - 24px);
-    max-height: calc(100vh - 165px);
-    max-height: calc(100dvh - 165px);
-    overflow-y: auto;
-    border-radius: 12px;
-}
-
-#oocnb-panel[hidden] {
+#oocnb-root[hidden],
+#oocnb-root [hidden] {
     display: none !important;
 }
 
-#oocnb-panel,
-#oocnb-panel * {
-    box-sizing: border-box;
+/* Затемнение за блокнотом */
+#oocnb-root {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.4);
+    color: var(--SmartThemeBodyColor, #eeeeee);
+}
+
+/* Основная панель */
+#oocnb-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    width: 760px;
+    max-width: 100%;
+    height: 780px;
+
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    min-height: 0;
+
+    padding: 16px;
+    overflow: hidden;
+
+    color: var(--SmartThemeBodyColor, #eeeeee);
+    background: var(--SmartThemeBlurTintColor, rgba(30, 30, 35, 0.97));
+    border: 1px solid var(--SmartThemeBorderColor, #666666);
+    border-radius: 16px;
+    box-shadow: 0 16px 60px rgba(0, 0, 0, 0.4);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
 }
 
 #oocnb-panel .oocnb-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--SmartThemeBorderColor, #777777);
+    gap: 12px;
+    flex-shrink: 0;
 }
 
-#oocnb-panel .oocnb-body {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px;
-}
-
-#oocnb-panel .oocnb-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-
-#oocnb-panel .oocnb-wrap {
-    flex-wrap: wrap;
-}
-
-#oocnb-panel button {
-    flex: 0 0 auto;
-    width: auto;
-    min-height: 32px;
+#oocnb-panel #oocnb-heading {
     margin: 0;
-    padding: 5px 9px;
-
     color: inherit;
-    background: rgba(128, 128, 128, 0.12);
-    border: 1px solid var(--SmartThemeBorderColor, #777777);
-    border-radius: 7px;
-
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
+    font-size: 1.2em;
+    line-height: 1.4;
 }
 
-#oocnb-panel button:hover,
-#oocnb-toggle:hover {
-    background: var(--SmartThemeBlurTintColor, #363636);
-    border-color: currentColor;
-}
-
-#oocnb-panel input.oocnb-title,
-#oocnb-panel select.oocnb-list,
-#oocnb-panel textarea.oocnb-text {
-    width: 100%;
-    min-width: 0;
-    margin: 0;
-    padding: 8px;
-
-    color: inherit;
-    background: rgba(128, 128, 128, 0.1);
-    border: 1px solid var(--SmartThemeBorderColor, #777777);
-    border-radius: 7px;
-
-    font: inherit;
-    text-shadow: none;
-}
-
-#oocnb-panel select.oocnb-list {
-    flex: 1 1 auto;
-}
-
-#oocnb-panel select.oocnb-list option {
-    color: var(--SmartThemeBodyColor, #eeeeee);
-    background: var(--SmartThemeChatTintColor, #262626);
-}
-
-#oocnb-panel textarea.oocnb-text {
-    display: block;
-    height: 220px;
-    min-height: 100px;
-    resize: vertical;
-    line-height: 1.5;
-}
-
-#oocnb-panel .oocnb-hint {
-    font-size: 12px;
+#oocnb-panel .oocnb-subtitle {
+    margin-top: 3px;
+    font-size: 0.85em;
     opacity: 0.75;
 }
 
-#oocnb-panel :focus-visible,
-#oocnb-toggle:focus-visible {
-    outline: 2px solid var(--SmartThemeBodyColor, #eeeeee);
-    outline-offset: 2px;
-}
-/* Панель блокнота: открывается из волшебной палочки */
-#oocnb-panel {
-    left: 12px;
-    bottom: 16px;
-    width: 390px;
-    max-width: calc(100vw - 24px);
-    max-height: calc(100vh - 32px);
-    max-height: calc(100dvh - 32px);
-}
-
-/* Переключатель автосбора */
-#oocnb-panel .oocnb-auto {
+/* Верхние кнопки */
+#oocnb-panel .oocnb-toolbar,
+#oocnb-panel .oocnb-card-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+#oocnb-panel .oocnb-toolbar {
+    flex-shrink: 0;
+}
+
+#oocnb-panel .oocnb-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: auto;
+    min-height: 36px;
     margin: 0;
-    font-size: 12px;
+    padding: 7px 10px;
+
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor, #666666);
+    border-radius: 8px;
+
+    font: inherit;
+    font-size: 0.85em;
+    line-height: 1.25;
+    text-shadow: none;
     cursor: pointer;
+    box-shadow: none;
 }
 
-#oocnb-panel .oocnb-auto input {
-    flex: 0 0 auto;
-    width: auto !important;
+#oocnb-panel .oocnb-button:hover {
+    background: rgba(128, 128, 128, 0.18);
+}
+
+#oocnb-panel .oocnb-button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+#oocnb-panel .oocnb-new {
+    font-weight: 600;
+    margin-right: auto;
+}
+
+#oocnb-panel .oocnb-close {
+    flex-shrink: 0;
+    min-width: 36px;
+}
+
+#oocnb-panel .oocnb-delete {
+    margin-left: auto;
+}
+
+/* Поиск */
+#oocnb-panel .oocnb-search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+#oocnb-panel .oocnb-search,
+#oocnb-panel .oocnb-title,
+#oocnb-panel .oocnb-text {
+    width: 100%;
+    min-width: 0;
     margin: 0;
+    padding: 10px 12px;
+
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+    background: var(--SmartThemeChatTintColor, rgba(128, 128, 128, 0.08));
+    border: 1px solid var(--SmartThemeBorderColor, #666666);
+    border-radius: 8px;
+
+    font: inherit;
+    line-height: 1.5;
+    text-shadow: none;
+    box-shadow: none;
 }
 
-@media (max-width: 600px) {
-    #oocnb-panel {
-        left: 8px;
-        right: 8px;
-        bottom: 8px;
-        width: auto;
-        max-width: none;
-        max-height: calc(100vh - 16px);
-        max-height: calc(100dvh - 16px);
-    }
+#oocnb-panel .oocnb-search::placeholder,
+#oocnb-panel .oocnb-title::placeholder,
+#oocnb-panel .oocnb-text::placeholder {
+    color: inherit;
+    opacity: 0.5;
 }
+
+#oocnb-panel .oocnb-count {
+    flex-shrink: 0;
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+
+/* Прокручиваемая лента карточек */
+#oocnb-panel .oocnb-cards {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 2px 5px 4px 2px;
+}
+
+#oocnb-panel .oocnb-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    margin-bottom: 12px;
