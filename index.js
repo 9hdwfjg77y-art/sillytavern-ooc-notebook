@@ -388,5 +388,102 @@ mountNotebookMenu();
         }
     });
 
+    // Настройка автосохранения отправленных OOC.
+    if (typeof data.autoCaptureOoc !== 'boolean') {
+        data.autoCaptureOoc = true;
+        save();
+    }
+
+    const autoLabel = document.createElement('label');
+    autoLabel.className = 'oocnb-auto';
+
+    const autoCheckbox = document.createElement('input');
+    autoCheckbox.type = 'checkbox';
+    autoCheckbox.checked = data.autoCaptureOoc;
+
+    const autoCaption = document.createElement('span');
+    autoCaption.textContent = 'Сохранять отправленные OOC';
+
+    autoLabel.append(autoCheckbox, autoCaption);
+    panel.querySelector('.oocnb-body').append(autoLabel);
+
+    autoCheckbox.addEventListener('change', () => {
+        data.autoCaptureOoc = autoCheckbox.checked;
+        save();
+    });
+
+    // Защита от повторной обработки одного события.
+    const capturedMessages = new WeakSet();
+
+    // Поддерживает OOC / ООС и смешанные латинские/кириллические буквы.
+    // Пометка должна находиться в начале сообщения.
+    const oocMarker = /^\s*(?:\[\s*|\(\s*)?[oо][oо][cс](?=$|[\s:)\]—-])/iu;
+
+    function captureSentOoc(messageId) {
+        if (!data.autoCaptureOoc) return;
+
+        const context = getContext();
+        const chat = context.chat;
+
+        if (!Array.isArray(chat) || !chat.length) return;
+
+        const numericId = (
+            typeof messageId === 'number' ||
+            typeof messageId === 'string'
+        ) ? Number(messageId) : NaN;
+
+        const index = Number.isInteger(numericId) && numericId >= 0
+            ? numericId
+            : chat.length - 1;
+
+        const message = chat[index];
+
+        // Только отправленные пользователем текстовые сообщения.
+        if (
+            !message ||
+            message.is_user !== true ||
+            typeof message.mes !== 'string'
+        ) return;
+
+        if (!oocMarker.test(message.mes)) return;
+        if (capturedMessages.has(message)) return;
+
+        capturedMessages.add(message);
+
+        const preview = message.mes
+            .trim()
+            .replace(/\s+/g, ' ')
+            .slice(0, 65);
+
+        const note = makeNote(preview || 'OOC', message.mes);
+
+        data.notes.push(note);
+        save();
+
+        // Не переключаем заметку, если ты сейчас работаешь в блокноте.
+        if (panel.hidden) {
+            selectedId = note.id;
+            showNote();
+        } else {
+            renderList();
+        }
+    }
+
+    const notebookContext = getContext();
+
+    if (
+        notebookContext.eventSource?.on &&
+        notebookContext.eventTypes?.MESSAGE_SENT
+    ) {
+        notebookContext.eventSource.on(
+            notebookContext.eventTypes.MESSAGE_SENT,
+            captureSentOoc,
+        );
+    } else {
+        autoCheckbox.disabled = true;
+        autoCaption.textContent =
+            'Автосбор недоступен в этой версии ST';
+    }
+
     showNote();
 })();
